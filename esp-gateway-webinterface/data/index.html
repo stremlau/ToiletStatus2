@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>ToiletStatus</title>
+<style>
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	width: 100%;
+}
+
+#toilet {
+	height: 236px;
+	width: 140px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin-top: -118px;
+	margin-left: -70px;
+	background: url(toilette.png);
+}
+
+#toilet.free {
+	filter: hue-rotate(150deg);
+	-webkit-filter: hue-rotate(150deg);
+}
+
+#toilet.unknown {
+	filter: grayscale(100%);
+	-webkit-filter: grayscale(100%);
+}
+
+#notification {
+	height: 80px;
+	width: 80px;
+	position: absolute;
+	right: 10px;
+	top: 10px;
+	background: url(notification.png);
+	-webkit-filter: grayscale(100%);
+	filter: grayscale(100%);
+}
+
+#notification.on {
+	-webkit-filter: grayscale(0%);
+	filter: grayscale(0%);
+}
+
+body {
+	background: radial-gradient(ellipse at center, rgb(240,249,255) 0%,rgb(145,214,255) 100%);
+}
+</style>
+<link href="favicon_unknown.ico" rel="shortcut icon" id="dynamic-favicon">
+</head>
+<body>
+<div id="toilet" class="unknown"></div>
+<a href="#" id="notification_toggle"><div id="notification"></div></a>
+<script>
+var el = document.getElementById("toilet");
+var notification_toggle = document.getElementById('notification_toggle');
+var notification = document.getElementById('notification');
+var httpRequest;
+
+var notification_on = false;
+
+notification_toggle.onclick = function() {
+	notification_on = !notification_on;
+
+	if (notification_on) {
+		if (!("Notification" in window)) {
+			alert("This browser does not support desktop notification");
+			notification_on = false;
+		}
+		else if (Notification.permission === "granted") {
+			notification.className = 'on';
+		}
+		else if (Notification.permission !== 'denied') {
+			Notification.requestPermission(function (permission) {
+				if (permission === "granted") {
+					notification.className = 'on';
+				}
+			});
+		}
+		else {
+			notification_on = false;
+		}
+		
+	}
+	else {
+		notification.className = '';
+	}
+
+	return false;
+}
+
+function makeRequest(url) {
+	httpRequest = new XMLHttpRequest();
+	httpRequest.onreadystatechange = alertContents;
+	httpRequest.open('GET', '/status');
+	httpRequest.send();
+}
+
+var state = 'unknown';
+function alertContents() {
+	if (httpRequest.readyState === XMLHttpRequest.DONE) {
+		var newstate = 'unknown';
+		if (httpRequest.status === 200) {
+			if (httpRequest.responseText == '1') newstate = 'occopied';
+			else newstate = 'free';
+		}
+		if (newstate != state) {
+			stateChanged(newstate, state);
+			state = newstate;
+		}
+		setTimeout(makeRequest, 3000);
+	}
+}
+
+function stateChanged(newState, oldState) {
+	el.className = newState;
+	changeFavicon('favicon_' + newState + '.ico');
+	if (newState == 'free' && oldState == 'occopied' && notification_on)
+		notify('Toilette frei', {icon: 'toilette_free.png', body: 'Die Tür wurde gerade geöffnet.'});
+}
+
+function notify(text, options) {
+	if (!("Notification" in window)) {
+		alert("This browser does not support desktop notification");
+	}
+	else if (Notification.permission === "granted") {
+		_sendNotification(text, options);
+	}
+	else if (Notification.permission !== 'denied') {
+	Notification.requestPermission(function (permission) {
+		if (permission === "granted") {
+			_sendNotification(text, options);
+		}
+	});
+	}
+}
+
+function _sendNotification(text, options) {
+    var notification = new Notification(text, options);
+	setTimeout(function(){
+		notification.close();
+	}, 4000); 
+}
+
+document.head || (document.head = document.getElementsByTagName('head')[0]);
+function changeFavicon(src) {
+	var link = document.createElement('link'),
+	 oldLink = document.getElementById('dynamic-favicon');
+	link.id = 'dynamic-favicon';
+	link.rel = 'shortcut icon';
+	link.href = src;
+	if (oldLink) {
+		document.head.removeChild(oldLink);
+	}
+	document.head.appendChild(link);
+}
+
+makeRequest();
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ToiletStatus</title>
+	<style>
+	html, body {
+		margin: 0;
+		padding: 0;
+		height: 100%;
+		width: 100%;
+
+		font-family: Arial;
+	}
+
+	body {
+		background: radial-gradient(ellipse at center, rgb(240,249,255) 0%,rgb(145,214,255) 100%);
+	}
+
+	#container {
+		width: 800px;
+		margin: auto;
+	}
+
+	label {
+		display: inline-block;
+		width: 100px;
+	}
+	</style>
+</head>
+<body>
+	<div id="container">
+		<h2>Einstellungen</h2>
+		<p>Mit welchem Netzwerk soll sich das Ger&auml;t verbinden und unter welcher Domain erreichbar sein?</p>
+		<form id="settings">		
+			<label for="ssid">SSID:</label> <input name="ssid" id="ssid" /><br />
+			<label for="pass">Passwort:</label> <input name="pass" id="pass" /><br />
+			<label for="host">Domain:</label> <input name="host" id="host" />.local<br />
+			<label>&nbsp;</label> <input type="button" id="save" value="Speichern" />
+		</form>
+		<h2>Info</h2>
+		IP-Adresse: <span id="ip_local">...</span><br />
+		IP-Adresse: <span id="ip_ap">...</span><br />
+		Verbindungsstatus: <span id="status">...</span><br />
+		Kanal: <span id="channel">...</span><br />
+		Signalst&auml;rke: <span id="signal">...</span> dbm<br />
+		<input type="button" id="refresh_info" value="Aktualisieren" />
+	</div>
+	<script>
+		var statusStr = ["idle", "SSID nicht gefunden", "scanned", "verbunden", "Verbinden fehlgeschlagen", "Verbindung verloren", "Verbindung getrennt"];
+
+		var ssid = document.getElementById("ssid");
+		var pass = document.getElementById("pass");
+		var host = document.getElementById("host");
+
+		var ip_local = document.getElementById("ip_local");
+		var ip_ap = document.getElementById("ip_ap");
+		var status = document.getElementById("status");
+		var channel = document.getElementById("channel");
+		var signal = document.getElementById("signal");
+
+		var save = document.getElementById("save");
+		var refresh_info = document.getElementById("refresh_info");
+
+		function makeRequest(url, callback, fail_callback, post) {
+			var httpRequest = new XMLHttpRequest();
+			httpRequest.onreadystatechange = function() {
+				if (httpRequest.readyState !== XMLHttpRequest.DONE) return;
+				if (httpRequest.status === 200) (callback) ? callback(httpRequest.responseText) : '';
+				else (fail_callback) ? fail_callback() : '';
+			};
+			httpRequest.open((post) ? 'POST' : 'GET', url);
+			httpRequest.send(post);
+		}
+
+		function readSettings() {
+			makeRequest('/settings', function(response) {
+				var data = JSON.parse(response);
+				ssid.value = data.ssid;
+				pass.value = data.pass;
+				host.value = data.host;
+			});
+		}
+		readSettings();
+
+		function readInfo() {
+			makeRequest('/info', function(response) {
+				var data = JSON.parse(response);
+				ip_local.innerHTML = data.ip_local;
+				ip_ap.innerHTML = data.ip_ap;
+				status.innerHTML = statusStr[parseInt(data.status)];
+				channel.innerHTML = data.channel;
+				signal.innerHTML = data.signal;
+			});
+		}
+
+		refresh_info.onclick = function() {
+			readInfo(true);
+		};
+
+		save.onclick = function() {
+			var post = 'ssid=' + ssid.value.replace('&', '%26') + '&pass=' + pass.value.replace('&', '%26') + '&host=' + host.value.replace('&', '%26');
+
+			makeRequest('/settings', null, function() {
+				alert('Fehler beim Speichern!');
+				readSettings();
+			}, post);
+		};
+	</script>
+</body>
+</html>
